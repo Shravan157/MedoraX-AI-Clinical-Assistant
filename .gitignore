@@ -1,0 +1,26 @@
+# Environment variables
+.env
+
+# Python folders
+venv/
+__pycache__/
+*.pyc
+
+# Audio files
+*.mp3
+
+# Images to ignore as per request
+skin_rash.jpg
+sore_throat.jpg
+
+# Temporary Gradio folders
+.gradio/
+.zencoder/
+.zenflow/
+
+# Other potential samples to ignore (Optional, but good practice for large images)
+# HandBurn.jpg
+# acne.jpg
+# eyeredness.jpg
+# dandruff-optimized.webp
+# pixabay_acne-pimples_1200.avif
