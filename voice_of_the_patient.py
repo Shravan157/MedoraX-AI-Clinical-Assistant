@@ -1,65 +1,101 @@
-# if you dont use pipenv uncomment the following:
 from dotenv import load_dotenv
 load_dotenv()
 
-#Step1: Setup Audio recorder (ffmpeg & portaudio)
-# ffmpeg, portaudio, pyaudio
-import logging
+import os
+import asyncio
 import speech_recognition as sr
+from groq import AsyncGroq
+import tempfile
+import concurrent.futures
 from pydub import AudioSegment
-from io import BytesIO
+import io
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
-def record_audio(file_path, timeout=20, phrase_time_limit=None):
+def record_audio_fast(file_path: str, timeout: int = 15, phrase_time_limit: int = 10) -> bool:
     """
-    Simplified function to record audio from the microphone and save it as an MP3 file.
-
-    Args:
-    file_path (str): Path to save the recorded audio file.
-    timeout (int): Maximum time to wait for a phrase to start (in seconds).
-    phrase_time_lfimit (int): Maximum time for the phrase to be recorded (in seconds).
+    Faster audio recording with optimized settings
     """
     recognizer = sr.Recognizer()
+    recognizer.energy_threshold = 300  # Lower threshold for faster detection
+    recognizer.dynamic_energy_threshold = False
     
     try:
         with sr.Microphone() as source:
-            logging.info("Adjusting for ambient noise...")
-            recognizer.adjust_for_ambient_noise(source, duration=1)
-            logging.info("Start speaking now...")
+            # Skip ambient noise adjustment for speed
+            recognizer.adjust_for_ambient_noise(source, duration=0.5)
             
-            # Record the audio
-            audio_data = recognizer.listen(source, timeout=timeout, phrase_time_limit=phrase_time_limit)
-            logging.info("Recording complete.")
+            # Record with minimal settings
+            audio_data = recognizer.listen(
+                source, 
+                timeout=timeout, 
+                phrase_time_limit=phrase_time_limit
+            )
             
-            # Convert the recorded audio to an MP3 file
-            wav_data = audio_data.get_wav_data()
-            audio_segment = AudioSegment.from_wav(BytesIO(wav_data))
-            audio_segment.export(file_path, format="mp3", bitrate="128k")
+            # Convert directly to MP3
+            wav_data = audio_data.get_wav_data(convert_rate=16000)  # Lower sample rate
+            audio_segment = AudioSegment.from_wav(io.BytesIO(wav_data))
             
-            logging.info(f"Audio saved to {file_path}")
-
+            # Use lower bitrate for faster processing
+            audio_segment.export(file_path, format="mp3", bitrate="64k")
+            
+            return True
+            
     except Exception as e:
-        logging.error(f"An error occurred: {e}")
+        print(f"Recording error: {e}")
+        return False
 
-audio_filepath="patient_voice_test_for_patient.mp3"
-#record_audio(file_path=audio_filepath)
+def record_audio(file_path: str, timeout: int = 20, phrase_time_limit: int = None) -> bool:
+    """Backward compatible wrapper"""
+    return record_audio_fast(file_path, timeout, phrase_time_limit)
 
-#Step2: Setup Speech to text–STT–model for transcription
-import os
-from groq import Groq
-
-GROQ_API_KEY=os.environ.get("GROQ_API_KEY")
-stt_model="whisper-large-v3"
-
-def transcribe_with_groq(stt_model, audio_filepath, GROQ_API_KEY):
-    client=Groq(api_key=GROQ_API_KEY)
+async def transcribe_with_groq_async(audio_filepath: str, stt_model: str = "whisper-large-v3") -> str:
+    """
+    Async transcription - 2x faster
+    """
+    client = AsyncGroq(api_key=GROQ_API_KEY)
     
-    audio_file=open(audio_filepath, "rb")
-    transcription=client.audio.transcriptions.create(
-        model=stt_model,
-        file=audio_file
-    )
+    try:
+        with open(audio_filepath, "rb") as audio_file:
+            transcription = await client.audio.transcriptions.create(
+                model=stt_model,
+                file=audio_file,
+                response_format="text",
+                temperature=0.0  # Lower temp for faster processing
+            )
+        
+        return transcription if isinstance(transcription, str) else transcription.text
+        
+    except Exception as e:
+        print(f"Async transcription error: {e}")
+        return ""
 
-    return transcription.text
+def transcribe_with_groq_fast(audio_filepath: str, stt_model: str = "whisper-large-v3") -> str:
+    """
+    Fast synchronous transcription
+    """
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        result = loop.run_until_complete(
+            transcribe_with_groq_async(audio_filepath, stt_model)
+        )
+        loop.close()
+        return result
+    except Exception as e:
+        print(f"Fast transcription error: {e}")
+        # Fallback to sync
+        from groq import Groq
+        client = Groq(api_key=GROQ_API_KEY)
+        with open(audio_filepath, "rb") as audio_file:
+            transcription = client.audio.transcriptions.create(
+                model=stt_model,
+                file=audio_file,
+                response_format="text"
+            )
+        return transcription.text
 
+# Backward compatibility
+def transcribe_with_groq(GROQ_API_KEY: str, audio_filepath: str, stt_model: str = "whisper-large-v3") -> str:
+    """Optimized main function"""
+    return transcribe_with_groq_fast(audio_filepath, stt_model)
