@@ -194,22 +194,6 @@ medorax/
 
 ---
 
-## 🎓 Academic Details
-
-| Field | Details |
-|---|---|
-| Project Title | MedoraX-AI Clinical Assistant |
-| Student | Prajakta Vilas Nigudse |
-| Seat No. | 26CS603032 |
-| Degree | B.Sc. Computer Science (Semester VI) |
-| Guide | Ms. Aishwarya Mokal |
-| Institution | Pillai HOC College of Arts, Science & Commerce (Autonomous), Rasayani |
-| University | University of Mumbai |
-| Academic Year | 2025–26 |
-
----
-
-## 📚 References
 
 1. Healthcare Chatbot using NLP Techniques — JUIT Final Year Project Report
 2. Medical Chatbot for Patients — GitHub Repository (May 2024)
