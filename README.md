@@ -203,6 +203,4 @@ medorax/
 
 ---
 
-## 📄 License
 
-This project was developed as an academic submission. Please contact the author for usage permissions.
